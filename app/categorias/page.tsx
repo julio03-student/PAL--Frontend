@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label"
 import { type Category, getCategories, createCategory, updateCategory, deleteCategory } from "@/lib/api"
 import { Edit, Trash2, Plus, Layers } from "lucide-react"
 import { ErrorMessage } from "@/components/error-message"
+import { LoadingSpinner } from "@/components/loading-spinner"
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([])
@@ -112,7 +113,7 @@ export default function CategoriesPage() {
   }
 
   if (loading) {
-    return <div className="text-center py-10">Cargando categorías...</div>
+    return <LoadingSpinner />
   }
 
   return (

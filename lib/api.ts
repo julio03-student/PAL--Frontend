@@ -1,5 +1,7 @@
-// Constante para la URL base de la API
-const API_BASE_URL = "/api"
+// Configuración de la API
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+const API_TIMEOUT = parseInt(process.env.NEXT_PUBLIC_API_TIMEOUT || '30000', 10)
+const UPLOAD_MAX_SIZE = parseInt(process.env.NEXT_PUBLIC_UPLOAD_MAX_SIZE || '10485760', 10)
 
 // Tipos de datos
 export interface Role {
@@ -20,6 +22,15 @@ export interface Category {
   name: string
 }
 
+export interface Content {
+  id: number
+  type: string
+  courseId: number
+  fileUrl?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Course {
   id: number
   title: string
@@ -32,20 +43,7 @@ export interface Course {
   difficultyLevel?: string
   publicationDate?: string
   durationInHours?: number
-}
-
-export interface Payment {
-  id: number
-  user: User
-  amount: number
-  paymentDate: string
-}
-
-export interface Enrollment {
-  id: number
-  user: User
-  course: Course
-  enrollmentDate: string
+  contents?: Content[]
 }
 
 export type DifficultyLevel = "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "ALL"
@@ -82,6 +80,11 @@ export interface CourseSearchResult {
   page: number
   pageSize: number
   totalPages: number
+}
+
+// Función para validar el tamaño del archivo
+const validateFileSize = (file: File): boolean => {
+  return file.size <= UPLOAD_MAX_SIZE
 }
 
 // Funciones para usuarios
@@ -293,93 +296,67 @@ export async function deleteCourse(id: number): Promise<boolean> {
   }
 }
 
-// Funciones para pagos
-export async function createPayment(paymentData: {
-  userID: number
-  amount: number
-  paymentDate: string
-}): Promise<Payment | null> {
+// Funciones para contenido
+export async function getContentsByCourse(courseId: number): Promise<Content[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/payments/create`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(paymentData),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error("Error al crear pago. Status:", response.status, "Respuesta:", errorText)
-      throw new Error(`Error al crear pago: ${response.status} ${errorText}`)
-    }
-
+    console.log("Enviando solicitud para obtener contenido del curso:", courseId)
+    const response = await fetch(`${API_BASE_URL}/content/course/${courseId}`)
     const data = await response.json()
-    return data.data ? data.data[0] : null
-  } catch (error) {
-    console.error("Error creating payment:", error)
-    return null
-  }
-}
-
-export async function getPayments(): Promise<Payment[]> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/payments/all`)
-    const data = await response.json()
+    console.log("Respuesta de obtener contenido del curso:", data)
     return data.data || []
   } catch (error) {
-    console.error("Error fetching payments:", error)
+    console.error("Error fetching contents:", error)
     return []
   }
 }
 
-export async function getPaymentById(id: number): Promise<Payment | null> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/payments/${id}`)
-    const data = await response.json()
-    return data.data ? data.data[0] : null
-  } catch (error) {
-    console.error("Error fetching payment:", error)
-    return null
-  }
-}
-
-// Funciones para inscripciones
-export async function enrollInCourse(enrollmentData: {
-  userId: number
+export async function uploadContent(contentData: {
+  file: File
+  type: string
   courseId: number
-  enrollmentDate: string
-  paymentId?: number
-}): Promise<Enrollment | null> {
+}): Promise<Content | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/enrollments/register`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(enrollmentData),
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.message || "Error al inscribirse en el curso")
+    if (!validateFileSize(contentData.file)) {
+      throw new Error(`El archivo excede el tamaño máximo permitido de ${UPLOAD_MAX_SIZE / 1024 / 1024}MB`)
     }
+
+    const formData = new FormData()
+    formData.append('file', contentData.file)
+    formData.append('type', contentData.type)
+    formData.append('courseId', contentData.courseId.toString())
+
+    const response = await fetch(`${API_BASE_URL}/content/update`, {
+      method: 'POST',
+      body: formData,
+    })
 
     const data = await response.json()
     return data.data ? data.data[0] : null
   } catch (error) {
-    console.error("Error enrolling in course:", error)
-    throw error
+    console.error("Error uploading content:", error)
+    return null
   }
 }
 
-export async function getMyEnrollments(userId: number): Promise<Enrollment[]> {
+export async function deleteContent(contentId: number): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/enrollments/my-courses?userId=${userId}`)
-    const data = await response.json()
-    return data.data || []
+    const response = await fetch(`${API_BASE_URL}/content/delete/${contentId}`, {
+      method: 'DELETE',
+    })
+
+    return response.status === 204
   } catch (error) {
-    console.error("Error fetching enrollments:", error)
-    return []
+    console.error("Error deleting content:", error)
+    return false
+  }
+}
+
+export async function downloadContent(contentId: number): Promise<void> {
+  try {
+    // Abrir el endpoint de descarga en una nueva ventana/pestaña
+    window.open(`${API_BASE_URL}/content/download/${contentId}`, '_blank')
+  } catch (error) {
+    console.error("Error downloading content:", error)
+    throw new Error('Error al descargar el archivo')
   }
 }
