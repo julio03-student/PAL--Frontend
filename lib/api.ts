@@ -34,6 +34,20 @@ export interface Course {
   durationInHours?: number
 }
 
+export interface Payment {
+  id: number
+  user: User
+  amount: number
+  paymentDate: string
+}
+
+export interface Enrollment {
+  id: number
+  user: User
+  course: Course
+  enrollmentDate: string
+}
+
 export type DifficultyLevel = "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "ALL"
 export type PriceFilter = "FREE" | "PAID" | "ALL"
 export type SortBy = "PRICE" | "DATE" | "RATING" | "RELEVANCE"
@@ -276,5 +290,96 @@ export async function deleteCourse(id: number): Promise<boolean> {
   } catch (error) {
     console.error("Error deleting course:", error)
     return false
+  }
+}
+
+// Funciones para pagos
+export async function createPayment(paymentData: {
+  userID: number
+  amount: number
+  paymentDate: string
+}): Promise<Payment | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/payments/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(paymentData),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error("Error al crear pago. Status:", response.status, "Respuesta:", errorText)
+      throw new Error(`Error al crear pago: ${response.status} ${errorText}`)
+    }
+
+    const data = await response.json()
+    return data.data ? data.data[0] : null
+  } catch (error) {
+    console.error("Error creating payment:", error)
+    return null
+  }
+}
+
+export async function getPayments(): Promise<Payment[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/payments/all`)
+    const data = await response.json()
+    return data.data || []
+  } catch (error) {
+    console.error("Error fetching payments:", error)
+    return []
+  }
+}
+
+export async function getPaymentById(id: number): Promise<Payment | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/payments/${id}`)
+    const data = await response.json()
+    return data.data ? data.data[0] : null
+  } catch (error) {
+    console.error("Error fetching payment:", error)
+    return null
+  }
+}
+
+// Funciones para inscripciones
+export async function enrollInCourse(enrollmentData: {
+  userId: number
+  courseId: number
+  enrollmentDate: string
+  paymentId?: number
+}): Promise<Enrollment | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/enrollments/register`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(enrollmentData),
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(errorData.message || "Error al inscribirse en el curso")
+    }
+
+    const data = await response.json()
+    return data.data ? data.data[0] : null
+  } catch (error) {
+    console.error("Error enrolling in course:", error)
+    throw error
+  }
+}
+
+export async function getMyEnrollments(userId: number): Promise<Enrollment[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/enrollments/my-courses?userId=${userId}`)
+    const data = await response.json()
+    return data.data || []
+  } catch (error) {
+    console.error("Error fetching enrollments:", error)
+    return []
   }
 }
