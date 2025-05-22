@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Book, Layers, Users, Search, GraduationCap } from "lucide-react"
+import { Book, Layers, Users, Home, Settings, Search, GraduationCap } from "lucide-react"
 
 export function Navbar() {
   const pathname = usePathname()

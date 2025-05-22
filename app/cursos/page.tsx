@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { LoadingSpinner } from "@/components/loading-spinner"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -31,8 +32,12 @@ import {
   deleteCourse,
   enrollInCourse,
   createPayment,
+  getContentsByCourse,
+  downloadContent,
+  uploadContent,
+  deleteContent,
 } from "@/lib/api"
-import { Edit, Trash2, Plus, Clock, Calendar, Book, GraduationCap } from "lucide-react"
+import { Edit, Trash2, Plus, Clock, Calendar, Book, GraduationCap, FileText, Download, Upload } from "lucide-react"
 import Link from "next/link"
 import { ErrorMessage } from "@/components/error-message"
 
@@ -52,6 +57,11 @@ export default function CoursesPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const userId = process.env.NEXT_PUBLIC_USER_ID ? Number.parseInt(process.env.NEXT_PUBLIC_USER_ID) : 2
+
+  const [downloadingContent, setDownloadingContent] = useState<number | null>(null)
+  const [uploadingContent, setUploadingContent] = useState(false)
+  const [newContentFile, setNewContentFile] = useState<File | null>(null)
+  const [newContentType, setNewContentType] = useState("DOCUMENTO")
 
   const [formData, setFormData] = useState({
     title: "",
@@ -76,7 +86,15 @@ export default function CoursesPage() {
       setLoading(true)
       try {
         const [coursesData, categoriesData, usersData] = await Promise.all([getCourses(), getCategories(), getUsers()])
-        setCourses(coursesData)
+        
+        const coursesWithContents = await Promise.all(
+          coursesData.map(async (course) => {
+            const contents = await getContentsByCourse(course.id)
+            return { ...course, contents }
+          })
+        )
+
+        setCourses(coursesWithContents)
         setCategories(categoriesData)
         setInstructors(usersData)
       } catch (err) {
@@ -88,6 +106,24 @@ export default function CoursesPage() {
 
     fetchData()
   }, [])
+
+  const handleDownloadContent = async (contentId: number) => {
+    try {
+      setDownloadingContent(contentId)
+      await downloadContent(contentId)
+    } catch (error) {
+      console.error('Error al descargar el archivo:', error)
+      alert('Error al descargar el archivo')
+    } finally {
+      setDownloadingContent(null)
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setNewContentFile(e.target.files[0])
+    }
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -290,6 +326,55 @@ export default function CoursesPage() {
     })
   }
 
+  const handleUploadContent = async (courseId: number) => {
+    if (!newContentFile) return
+
+    try {
+      setUploadingContent(true)
+      const content = await uploadContent({
+        file: newContentFile,
+        type: newContentType,
+        courseId,
+      })
+
+      if (content) {
+        setCourses(courses.map(course => {
+          if (course.id === courseId) {
+            return {
+              ...course,
+              contents: [...(course.contents || []), content]
+            }
+          }
+          return course
+        }))
+        setNewContentFile(null)
+        setNewContentType("DOCUMENTO")
+      }
+    } catch (error) {
+      console.error('Error al subir el contenido:', error)
+      alert('Error al subir el contenido')
+    } finally {
+      setUploadingContent(false)
+    }
+  }
+
+  const handleDeleteContent = async (courseId: number, contentId: number) => {
+    if (window.confirm("¿Estás seguro de que deseas eliminar este contenido?")) {
+      const success = await deleteContent(contentId)
+      if (success) {
+        setCourses(courses.map(course => {
+          if (course.id === courseId) {
+            return {
+              ...course,
+              contents: course.contents?.filter(content => content.id !== contentId) || []
+            }
+          }
+          return course
+        }))
+      }
+    }
+  }
+
   if (loading) {
     return <div className="text-center py-10">Cargando cursos...</div>
   }
@@ -297,10 +382,10 @@ export default function CoursesPage() {
   return (
     <div className="container mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold mt-2">Cursos</h1>
+        <h1 className="text-3xl font-bold mt-2 text-blue-800">Cursos</h1>
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="bg-blue-600 hover:bg-blue-700">
               <Plus className="mr-2 h-4 w-4" />
               Nuevo Curso
             </Button>
@@ -308,8 +393,8 @@ export default function CoursesPage() {
           <DialogContent className="sm:max-w-[600px]">
             <form onSubmit={handleSubmit}>
               <DialogHeader>
-                <DialogTitle>{editingCourse ? "Editar Curso" : "Crear Nuevo Curso"}</DialogTitle>
-                <DialogDescription>Completa los detalles del curso a continuación.</DialogDescription>
+                <DialogTitle className="text-blue-800">{editingCourse ? "Editar Curso" : "Crear Nuevo Curso"}</DialogTitle>
+                <DialogDescription className="text-gray-600">Completa los detalles del curso a continuación.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -447,6 +532,98 @@ export default function CoursesPage() {
                   />
                 </div>
               </div>
+
+              {/* Sección de Contenidos */}
+              {editingCourse && (
+                <div className="mt-6 border-t pt-4">
+                  <h3 className="text-lg font-medium mb-4">Contenidos del Curso</h3>
+                  
+                  {/* Lista de contenidos existentes */}
+                  {editingCourse.contents && editingCourse.contents.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      {editingCourse.contents.map((content) => (
+                        <div key={content.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                          <div className="flex items-center">
+                            <FileText className="h-4 w-4 mr-2" />
+                            <span className="text-sm">{content.type}</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownloadContent(content.id)}
+                              disabled={downloadingContent === content.id}
+                            >
+                              {downloadingContent === content.id ? (
+                                <div className="h-4 w-4">
+                                  <LoadingSpinner />
+                                </div>
+                              ) : (
+                                <Download className="h-4 w-4" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteContent(editingCourse.id, content.id)}
+                            >
+                              <Trash2 className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Formulario para agregar nuevo contenido */}
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="contentType">Tipo de Contenido</Label>
+                        <Select
+                          value={newContentType}
+                          onValueChange={setNewContentType}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona un tipo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="DOCUMENTO">Documento</SelectItem>
+                            <SelectItem value="VIDEO">Video</SelectItem>
+                            <SelectItem value="IMAGEN">Imagen</SelectItem>
+                            <SelectItem value="AUDIO">Audio</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="contentFile">Archivo</Label>
+                        <Input
+                          id="contentFile"
+                          type="file"
+                          onChange={handleFileChange}
+                          accept=".pdf,.doc,.docx,.mp4,.jpg,.jpeg,.png,.mp3"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => handleUploadContent(editingCourse.id)}
+                      disabled={!newContentFile || uploadingContent}
+                      className="w-full"
+                    >
+                      {uploadingContent ? (
+                        <div className="h-4 w-4 mr-2">
+                          <LoadingSpinner />
+                        </div>
+                      ) : (
+                        <Upload className="h-4 w-4 mr-2" />
+                      )}
+                      Subir Contenido
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <DialogFooter>
                 <Button type="submit">{editingCourse ? "Actualizar" : "Crear"}</Button>
               </DialogFooter>
@@ -549,7 +726,7 @@ export default function CoursesPage() {
           <DialogFooter>
             <Button
               onClick={handleEnrollSubmit}
-              disabled={enrolling || (selectedCourse && selectedCourse.price > 0 && !paymentId)}
+              disabled={enrolling || (selectedCourse?.price ?? 0) > 0 && !paymentId}
             >
               {enrolling ? "Inscribiendo..." : "Confirmar Inscripción"}
             </Button>
@@ -564,27 +741,27 @@ export default function CoursesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {courses.map((course) => (
-            <Card key={course.id} className="overflow-hidden">
-              <CardHeader className="pb-2">
-                <CardTitle>{course.title}</CardTitle>
-                <CardDescription>
+            <Card key={course.id} className="overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+                <CardTitle className="text-white">{course.title}</CardTitle>
+                <CardDescription className="text-blue-100">
                   Categoría: {course.category.name} | Instructor: {course.instructor.username}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-gray-600 line-clamp-3 mb-2">{course.description}</p>
                 <div className="flex justify-between text-sm mb-2">
-                  <span className="font-medium">
+                  <span className="font-medium text-blue-700">
                     Precio: {course.price === 0 ? "Gratis" : `$${course.price.toFixed(2)}`}
                   </span>
-                  <span className="font-medium">Calificación: {course.average_grade}/5</span>
+                  <span className="font-medium text-orange-500">Calificación: {course.average_grade}/5</span>
                 </div>
                 <div className="flex items-center text-sm text-gray-600 mb-2">
-                  <Clock className="h-4 w-4 mr-1" />
+                  <Clock className="h-4 w-4 mr-1 text-blue-600" />
                   <span>{course.durationInHours || 0} horas</span>
                 </div>
                 <div className="flex items-center text-sm text-gray-600 mb-2">
-                  <Calendar className="h-4 w-4 mr-1" />
+                  <Calendar className="h-4 w-4 mr-1 text-blue-600" />
                   <span>{formatDate(course.publicationDate)}</span>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
@@ -617,9 +794,37 @@ export default function CoursesPage() {
                     </span>
                   )}
                 </div>
+                {/* Sección de Contenidos */}
+                {course.contents && course.contents.length > 0 && (
+                  <div className="mt-4 border-t pt-4">
+                    <h4 className="text-sm font-medium mb-2 text-blue-800">Contenidos del Curso:</h4>
+                    <div className="space-y-2">
+                      {course.contents.map((content) => (
+                        <div 
+                          key={content.id} 
+                          className="flex items-center justify-between text-sm text-gray-600 hover:bg-blue-50 p-2 rounded-md cursor-pointer transition-colors"
+                          onClick={() => handleDownloadContent(content.id)}
+                        >
+                          <div className="flex items-center">
+                            <FileText className="h-4 w-4 mr-2 text-blue-600" />
+                            <span>{content.type}</span>
+                          </div>
+                          {downloadingContent === content.id ? (
+                            <div className="h-4 w-4">
+                              <LoadingSpinner />
+                            </div>
+                          ) : (
+                            <Download className="h-4 w-4 text-blue-600" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
-              <CardFooter className="flex justify-end space-x-2 pt-0">
-                <Button variant="outline" size="sm" onClick={() => handleEdit(course)}>
+              
+              <CardFooter className="flex justify-end space-x-2 pt-0 bg-gray-50">
+                <Button variant="outline" size="sm" onClick={() => handleEdit(course)} className="hover:bg-blue-50 hover:text-blue-700">
                   <Edit className="h-4 w-4 mr-1" />
                   Editar
                 </Button>
@@ -628,12 +833,12 @@ export default function CoursesPage() {
                   Eliminar
                 </Button>
                 <Link href={`/cursos/${course.id}`}>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="hover:bg-blue-50 hover:text-blue-700">
                     <Book className="h-4 w-4 mr-1" />
                     Ver Detalle
                   </Button>
                 </Link>
-                <Button variant="default" size="sm" onClick={() => handleEnroll(course)}>
+                <Button variant="default" size="sm" onClick={() => handleEnroll(course)} className="bg-blue-600 hover:bg-blue-700">
                   <GraduationCap className="h-4 w-4 mr-1" />
                   Inscribirme
                 </Button>

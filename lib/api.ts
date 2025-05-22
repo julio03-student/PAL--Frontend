@@ -20,6 +20,15 @@ export interface Category {
   name: string
 }
 
+export interface Content {
+  id: number
+  type: string
+  courseId: number
+  fileUrl?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Course {
   id: number
   title: string
@@ -32,6 +41,7 @@ export interface Course {
   difficultyLevel?: string
   publicationDate?: string
   durationInHours?: number
+  contents?: Content[]
 }
 
 export interface Payment {
@@ -381,5 +391,76 @@ export async function getMyEnrollments(userId: number): Promise<Enrollment[]> {
   } catch (error) {
     console.error("Error fetching enrollments:", error)
     return []
+  }
+}
+
+export async function getContentsByCourse(courseId: number): Promise<Content[]> {
+  try {
+    console.log("Enviando solicitud para obtener contenido del curso:", courseId)
+    const response = await fetch(`${API_BASE_URL}/content/course/${courseId}`)
+    const data = await response.json()
+    console.log("Respuesta de obtener contenido del curso:", data)
+    return data.data || []
+  } catch (error) {
+    console.error("Error fetching contents:", error)
+    return []
+  }
+
+}
+
+// Función para validar el tamaño del archivo
+const validateFileSize = (file: File): boolean => {
+  return file.size <= 10485760
+}
+
+
+export async function uploadContent(contentData: {
+  file: File
+  type: string
+  courseId: number
+}): Promise<Content | null> {
+  try {
+    if (!validateFileSize(contentData.file)) {
+      throw new Error(`El archivo excede el tamaño máximo permitido de ${10485760 / 1024 / 1024}MB`)
+    }
+
+    const formData = new FormData()
+    formData.append('file', contentData.file)
+    formData.append('type', contentData.type)
+    formData.append('courseId', contentData.courseId.toString())
+
+    const response = await fetch(`${API_BASE_URL}/content/update`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    const data = await response.json()
+    return data.data ? data.data[0] : null
+  } catch (error) {
+    console.error("Error uploading content:", error)
+    return null
+  }
+}
+
+export async function deleteContent(contentId: number): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/content/delete/${contentId}`, {
+      method: 'DELETE',
+    })
+
+    return response.status === 204
+  } catch (error) {
+    console.error("Error deleting content:", error)
+    return false
+  }
+}
+
+export async function downloadContent(contentId: number): Promise<void> {
+  try {
+    // Abrir el endpoint de descarga en una nueva ventana/pestaña
+    window.open(`${API_BASE_URL}/content/download/${contentId}`, '_blank')
+  } catch (error) {
+    console.error("Error downloading content:", error)
+    throw new Error('Error al descargar el archivo')
   }
 }

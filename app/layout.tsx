@@ -16,7 +16,9 @@ export default function RootLayout({
           <Navbar />
           <Sidebar />
           <div className="p-4 sm:ml-64 pt-28">
-            <div className="p-4 border-2 border-gray-200 border-dashed rounded-lg">{children}</div>
+            <div className="p-4 border-2 border-gray-200 border-dashed rounded-lg">
+              {children}
+            </div>
           </div>
         </ThemeProvider>
       </body>
@@ -25,5 +27,5 @@ export default function RootLayout({
 }
 
 export const metadata = {
-      generator: 'v0.dev'
-    };
+  generator: 'v0.dev'
+};
