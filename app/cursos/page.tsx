@@ -382,10 +382,10 @@ export default function CoursesPage() {
   return (
     <div className="container mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold mt-2 text-blue-800">Cursos</h1>
+        <h1 className="text-3xl font-bold mt-2 text-primary">Cursos</h1>
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button className="bg-primary hover:bg-primary/90">
               <Plus className="mr-2 h-4 w-4" />
               Nuevo Curso
             </Button>
@@ -393,8 +393,8 @@ export default function CoursesPage() {
           <DialogContent className="sm:max-w-[600px]">
             <form onSubmit={handleSubmit}>
               <DialogHeader>
-                <DialogTitle className="text-blue-800">{editingCourse ? "Editar Curso" : "Crear Nuevo Curso"}</DialogTitle>
-                <DialogDescription className="text-gray-600">Completa los detalles del curso a continuación.</DialogDescription>
+                <DialogTitle className="text-primary">{editingCourse ? "Editar Curso" : "Crear Nuevo Curso"}</DialogTitle>
+                <DialogDescription className="text-muted-foreground">Completa los detalles del curso a continuación.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -736,42 +736,42 @@ export default function CoursesPage() {
 
       {courses.length === 0 ? (
         <div className="text-center py-10">
-          <p className="text-gray-500">No hay cursos disponibles. Crea uno nuevo para comenzar.</p>
+          <p className="text-muted-foreground">No hay cursos disponibles. Crea uno nuevo para comenzar.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {courses.map((course) => (
-            <Card key={course.id} className="overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-              <CardHeader className="pb-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-                <CardTitle className="text-white">{course.title}</CardTitle>
-                <CardDescription className="text-blue-100">
+            <Card key={course.id} className="overflow-hidden border shadow-sm hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2 bg-gradient-to-r from-primary to-primary/90 text-primary-foreground">
+                <CardTitle className="text-primary-foreground">{course.title}</CardTitle>
+                <CardDescription className="text-primary-foreground/80">
                   Categoría: {course.category.name} | Instructor: {course.instructor.username}
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-gray-600 line-clamp-3 mb-2">{course.description}</p>
+                <p className="text-sm text-muted-foreground line-clamp-3 mb-2">{course.description}</p>
                 <div className="flex justify-between text-sm mb-2">
-                  <span className="font-medium text-blue-700">
+                  <span className="font-medium text-primary">
                     Precio: {course.price === 0 ? "Gratis" : `$${course.price.toFixed(2)}`}
                   </span>
                   <span className="font-medium text-orange-500">Calificación: {course.average_grade}/5</span>
                 </div>
-                <div className="flex items-center text-sm text-gray-600 mb-2">
-                  <Clock className="h-4 w-4 mr-1 text-blue-600" />
+                <div className="flex items-center text-sm text-muted-foreground mb-2">
+                  <Clock className="h-4 w-4 mr-1 text-primary" />
                   <span>{course.durationInHours || 0} horas</span>
                 </div>
-                <div className="flex items-center text-sm text-gray-600 mb-2">
-                  <Calendar className="h-4 w-4 mr-1 text-blue-600" />
+                <div className="flex items-center text-sm text-muted-foreground mb-2">
+                  <Calendar className="h-4 w-4 mr-1 text-primary" />
                   <span>{formatDate(course.publicationDate)}</span>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
                   <span
                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       course.status === "activo"
-                        ? "bg-green-100 text-green-800"
+                        ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100"
                         : course.status === "inactivo"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-yellow-100 text-yellow-800"
+                          ? "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100"
+                          : "bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-100"
                     }`}
                   >
                     {course.status}
@@ -780,10 +780,10 @@ export default function CoursesPage() {
                     <span
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         course.difficultyLevel === "BEGINNER"
-                          ? "bg-blue-100 text-blue-800"
+                          ? "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100"
                           : course.difficultyLevel === "INTERMEDIATE"
-                            ? "bg-purple-100 text-purple-800"
-                            : "bg-orange-100 text-orange-800"
+                            ? "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-100"
+                            : "bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-100"
                       }`}
                     >
                       {course.difficultyLevel === "BEGINNER"
@@ -797,16 +797,16 @@ export default function CoursesPage() {
                 {/* Sección de Contenidos */}
                 {course.contents && course.contents.length > 0 && (
                   <div className="mt-4 border-t pt-4">
-                    <h4 className="text-sm font-medium mb-2 text-blue-800">Contenidos del Curso:</h4>
+                    <h4 className="text-sm font-medium mb-2 text-primary">Contenidos del Curso:</h4>
                     <div className="space-y-2">
                       {course.contents.map((content) => (
                         <div 
                           key={content.id} 
-                          className="flex items-center justify-between text-sm text-gray-600 hover:bg-blue-50 p-2 rounded-md cursor-pointer transition-colors"
+                          className="flex items-center justify-between text-sm text-muted-foreground hover:bg-accent p-2 rounded-md cursor-pointer transition-colors"
                           onClick={() => handleDownloadContent(content.id)}
                         >
                           <div className="flex items-center">
-                            <FileText className="h-4 w-4 mr-2 text-blue-600" />
+                            <FileText className="h-4 w-4 mr-2 text-primary" />
                             <span>{content.type}</span>
                           </div>
                           {downloadingContent === content.id ? (
@@ -814,7 +814,7 @@ export default function CoursesPage() {
                               <LoadingSpinner />
                             </div>
                           ) : (
-                            <Download className="h-4 w-4 text-blue-600" />
+                            <Download className="h-4 w-4 text-primary" />
                           )}
                         </div>
                       ))}
@@ -823,8 +823,8 @@ export default function CoursesPage() {
                 )}
               </CardContent>
               
-              <CardFooter className="flex justify-end space-x-2 pt-0 bg-gray-50">
-                <Button variant="outline" size="sm" onClick={() => handleEdit(course)} className="hover:bg-blue-50 hover:text-blue-700">
+              <CardFooter className="flex justify-end space-x-2 pt-0 bg-accent">
+                <Button variant="outline" size="sm" onClick={() => handleEdit(course)} className="hover:bg-accent hover:text-accent-foreground">
                   <Edit className="h-4 w-4 mr-1" />
                   Editar
                 </Button>
@@ -833,12 +833,12 @@ export default function CoursesPage() {
                   Eliminar
                 </Button>
                 <Link href={`/cursos/${course.id}`}>
-                  <Button variant="outline" size="sm" className="hover:bg-blue-50 hover:text-blue-700">
+                  <Button variant="outline" size="sm" className="hover:bg-accent hover:text-accent-foreground">
                     <Book className="h-4 w-4 mr-1" />
                     Ver Detalle
                   </Button>
                 </Link>
-                <Button variant="default" size="sm" onClick={() => handleEnroll(course)} className="bg-blue-600 hover:bg-blue-700">
+                <Button variant="default" size="sm" onClick={() => handleEnroll(course)} className="bg-primary hover:bg-primary/90">
                   <GraduationCap className="h-4 w-4 mr-1" />
                   Inscribirme
                 </Button>

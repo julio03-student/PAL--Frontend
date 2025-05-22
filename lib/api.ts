@@ -464,3 +464,57 @@ export async function downloadContent(contentId: number): Promise<void> {
     throw new Error('Error al descargar el archivo')
   }
 }
+
+interface CertificateResponse {
+  message: string;
+  data: Array<{
+    id: number;
+    certificateNumber: string;
+    status: string;
+    issueDate: string;
+    user: {
+      id: number;
+      username: string;
+      email: string;
+    };
+    course: {
+      id: number;
+      title: string;
+      description: string;
+    };
+  }>;
+}
+
+export async function getCertificate(courseId: number, userId: number): Promise<number> {
+  const response = await fetch(`${API_BASE_URL}/certificates/generate/${courseId}/${userId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.message || 'Error al generar el certificado')
+  }
+
+  const data: CertificateResponse = await response.json()
+  if (!data.data || data.data.length === 0) {
+    throw new Error('No se pudo generar el certificado')
+  }
+
+  return data.data[0].id
+}
+
+export async function downloadCertificate(certificateId: number): Promise<Blob> {
+  console.log("Enviando solicitud para descargar certificado:", { certificateId })
+  const response = await fetch(`${API_BASE_URL}/certificates/download/${certificateId}`, {
+    method: 'GET',
+  })
+
+  if (!response.ok) {
+    throw new Error('Error al descargar el certificado')
+  }
+
+  return response.blob()
+}

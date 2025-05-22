@@ -5,6 +5,43 @@
     },
     "item": [
       {
+        "name": "Autenticación",
+        "item": [
+          {
+            "name": "Login",
+            "request": {
+              "method": "POST",
+              "url": "{{baseUrl}}/api/auth/login",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n    \"username\": \"usuario1\",\n    \"password\": \"contraseña123\"\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "name": "Registro",
+            "request": {
+              "method": "POST",
+              "url": "{{baseUrl}}/api/auth/register",
+              "body": {
+                "mode": "raw",
+                "raw": "{\n    \"username\": \"nuevo_usuario\",\n    \"password\": \"contraseña123\",\n    \"email\": \"nuevo@ejemplo.com\",\n    \"roles\": [\"STUDENT\"]\n}",
+                "options": {
+                  "raw": {
+                    "language": "json"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
         "name": "Usuarios",
         "item": [
           {
@@ -120,7 +157,7 @@
               "url": "{{baseUrl}}/api/courses/update/1",
               "body": {
                 "mode": "raw",
-                "raw": "{\n    \"title\": \"Curso Actualizado\"\n}",
+                "raw": "{\n    \"title\": \"Curso Actualizado\",\n    \"description\": \"Nueva descripción\",\n    \"categoryId\": 1,\n    \"contentsToAdd\": [],\n    \"contentIdsToRemove\": []\n}",
                 "options": {
                   "raw": {
                     "language": "json"
@@ -382,7 +419,7 @@
     "variable": [
       {
         "key": "baseUrl",
-        "value": "http://localhost:8080"
+        "value": "http://localhost:8081"
       }
     ]
   }
