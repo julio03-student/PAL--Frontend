@@ -36,10 +36,18 @@ import {
   downloadContent,
   uploadContent,
   deleteContent,
+  getProgressReport,
 } from "@/lib/api"
-import { Edit, Trash2, Plus, Clock, Calendar, Book, GraduationCap, FileText, Download, Upload } from "lucide-react"
+import { Edit, Trash2, Plus, Clock, Calendar, Book, GraduationCap, FileText, Download, Upload, FileDown } from "lucide-react"
 import Link from "next/link"
 import { ErrorMessage } from "@/components/error-message"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { toast } from "sonner"
 
 export default function CoursesPage() {
   const router = useRouter()
@@ -372,6 +380,31 @@ export default function CoursesPage() {
           return course
         }))
       }
+    }
+  }
+
+  const handleGenerateReport = async (courseId: number, format: 'csv' | 'pdf') => {
+    try {
+      const blob = await getProgressReport(courseId, format)
+      
+      // Creamos un objeto URL para el blob
+      const url = window.URL.createObjectURL(blob)
+      
+      // Creamos un enlace temporal y lo hacemos clic
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `reporte-curso-${courseId}.${format}`
+      document.body.appendChild(link)
+      link.click()
+      
+      // Limpiamos
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      
+      toast.success(`Reporte ${format.toUpperCase()} generado exitosamente`)
+    } catch (err) {
+      console.error("Error generating report:", err)
+      toast.error(err instanceof Error ? err.message : "Error al generar el reporte")
     }
   }
 
@@ -824,13 +857,29 @@ export default function CoursesPage() {
               </CardContent>
               
               <CardFooter className="flex justify-end space-x-2 pt-0 bg-accent">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="hover:bg-accent hover:text-accent-foreground">
+                      <FileText className="h-4 w-4 mr-1" />
+                      Reportes
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => handleGenerateReport(course.id, 'csv')}>
+                      <FileDown className="h-4 w-4 mr-2" />
+                      Descargar CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleGenerateReport(course.id, 'pdf')}>
+                      <FileDown className="h-4 w-4 mr-2" />
+                      Descargar PDF
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button variant="outline" size="sm" onClick={() => handleEdit(course)} className="hover:bg-accent hover:text-accent-foreground">
-                  <Edit className="h-4 w-4 mr-1" />
-                  Editar
+                  <Edit className="h-4 w-4 mr-1" />                  
                 </Button>
                 <Button variant="destructive" size="sm" onClick={() => handleDelete(course.id)}>
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Eliminar
+                  <Trash2 className="h-4 w-4 mr-1" />                  
                 </Button>
                 <Link href={`/cursos/${course.id}`}>
                   <Button variant="outline" size="sm" className="hover:bg-accent hover:text-accent-foreground">
