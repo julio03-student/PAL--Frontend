@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Book, Layers, Users, Home, Settings, Search, Menu, X } from "lucide-react"
+import { Book, Layers, Users, Home, Settings, Search, Menu, X, File } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export function Navigation() {
@@ -21,6 +21,7 @@ export function Navigation() {
     { href: "/categorias", label: "Categorías", icon: Layers },
     { href: "/usuarios", label: "Usuarios", icon: Users },
     { href: "/configuracion", label: "Configuración", icon: Settings },
+    { href: "/examenes", label: "examenes", icon: File },
   ]
 
   return (

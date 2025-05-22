@@ -79,6 +79,17 @@ export function Navbar() {
             <Users className="w-5 h-5 mr-2" />
             <span>Usuarios</span>
           </Link>
+          <Link
+            href="/examenes"
+            className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg ${
+              pathname.includes("/examenes")
+                ? "text-primary-foreground bg-primary hover:bg-primary/90"
+                : "text-foreground hover:bg-accent"
+            }`}
+          >
+            <Users className="w-5 h-5 mr-2" />
+            <span>Examenes</span>
+          </Link>
         </div>
       </div>
     </nav>

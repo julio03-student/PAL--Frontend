@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Book, Layers, Users, Home, Settings, Search, GraduationCap } from "lucide-react"
+import { Book, Layers, Users, Home, Settings, Search, GraduationCap, File } from "lucide-react"
 
 export function Sidebar() {
   const pathname = usePathname()
@@ -86,6 +86,17 @@ export function Sidebar() {
             >
               <Settings className="w-6 h-6 text-muted-foreground transition duration-75 group-hover:text-foreground" />
               <span className="ml-3">Configuración</span>
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/examenes"
+              className={`flex items-center p-2 text-foreground rounded-lg hover:bg-accent ${
+                pathname.includes("/examenes") ? "bg-accent" : ""
+              }`}
+            >
+              <File className="w-6 h-6 text-muted-foreground transition duration-75 group-hover:text-foreground" />
+              <span className="ml-3">Examenes</span>
             </Link>
           </li>
         </ul>

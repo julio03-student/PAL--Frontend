@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { type User, getUsers, createUser } from "@/lib/api"
 import { Plus, UserIcon } from "lucide-react"
+import Link from "next/link"
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
@@ -185,14 +186,16 @@ export default function UsersPage() {
                         key={index}
                         className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mr-1"
                       >
-                        {role.name || role}
+                        {typeof role === 'string' ? role : role.name}
                       </span>
                     ))}
                 </div>
               </CardContent>
               <CardFooter className="flex justify-end space-x-2 pt-0">
                 <Button variant="outline" size="sm">
+                <Link href={`/usuarios/${user.id}`}>
                   Ver Detalles
+                </Link>
                 </Button>
               </CardFooter>
             </Card>

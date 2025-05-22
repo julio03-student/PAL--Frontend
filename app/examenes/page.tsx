@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { type Exam, type Course, getExams, getCourses, createExam, deleteExam } from "@/lib/api"
+import { Exam, getCourses, getExams,type Course } from "@/lib/api"
 import { Trash2, Plus, FileText } from "lucide-react"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { useLoading } from "@/hooks/use-loading"
@@ -39,8 +39,9 @@ export default function ExamsPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [examsData, coursesData] = await Promise.all([withLoading(getExams) || [], withLoading(getCourses) || []])
+      const examsData = await getExams()
       setExams(examsData)
+      const coursesData = await getCourses()
       setCourses(coursesData)
     }
 
@@ -139,7 +140,7 @@ export default function ExamsPage() {
             <Button className="bg-primary-600 hover:bg-primary-700" disabled={isLoading}>
               <Plus className="mr-2 h-4 w-4" />
               Nuevo Examen
-              {isLoading && <LoadingSpinner className="ml-2" />}
+              {isLoading && <LoadingSpinner/>}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[600px]">
@@ -212,7 +213,7 @@ export default function ExamsPage() {
               <DialogFooter>
                 <Button type="submit" className="bg-primary-600 hover:bg-primary-700" disabled={isLoading}>
                   Crear
-                  {isLoading && <LoadingSpinner className="ml-2" />}
+                  {isLoading && <LoadingSpinner/>}
                 </Button>
               </DialogFooter>
             </form>
@@ -260,3 +261,11 @@ export default function ExamsPage() {
     </div>
   )
 }
+function deleteExam(id: number) {
+  throw new Error("Function not implemented.")
+}
+
+function createExam(formData: { title: string; courseId: number; questions: { text: string; examId: number }[] }) {
+  throw new Error("Function not implemented.")
+}
+

@@ -1,253 +1,452 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { type Exam, type Question, getExamById, createAnswer, getQuestions } from "@/lib/api"
-import { Plus, ArrowLeft } from "lucide-react"
+import { type Exam, type Question, getExamById, Answer } from "@/lib/api"
+import { ArrowLeft, CheckCircle2, XCircle } from "lucide-react"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { useLoading } from "@/hooks/use-loading"
 import Link from "next/link"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
+import { toast } from "sonner"
+
+interface QuestionWithAnswers extends Omit<Question, 'answers'> {
+  answers: Answer[];
+}
+
+interface QuestionResult {
+  questionId: number;
+  questionText: string;
+  studentAnswer: string;
+  correctAnswer: string;
+  correct: boolean;
+}
+
+interface ExamResult {
+  examId: number;
+  studentId: number;
+  examTitle: string;
+  studentName: string;
+  score: number;
+  totalQuestions: number;
+  percentage: number;
+  questionResults: QuestionResult[];
+  generalComments: string;
+}
 
 export default function ExamDetailPage() {
-  const params = useParams()
-  const examId = Number(params.id)
-
+  const { id } = useParams();
+  const router = useRouter();
   const [exam, setExam] = useState<Exam | null>(null)
-  const [questions, setQuestions] = useState<Question[]>([])
-  const [open, setOpen] = useState(false)
-  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null)
+  const [questions, setQuestions] = useState<QuestionWithAnswers[]>([])
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [examResult, setExamResult] = useState<ExamResult | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasSubmitted, setHasSubmitted] = useState(false)
 
-  const [formData, setFormData] = useState({
-    text: "",
-    correct: false,
-  })
-
-  const { isLoading, withLoading } = useLoading()
+  const { isLoading: useLoadingIsLoading, withLoading } = useLoading()
 
   useEffect(() => {
+    const checkExamStatus = async () => {
+      if (id) {
+        try {
+          const response = await fetch(`http://localhost:8081/api/exams/results/2?studentId=2`);
+          if (response.ok) {
+            const result = await response.json();
+            console.log('Respuesta del servidor:', result);
+
+            if (result.data && Array.isArray(result.data) && result.data.length > 0) {
+              const examData = result.data[0];
+              console.log('Datos del examen:', examData);
+
+              // Obtener las respuestas correctas para cada pregunta
+              const questionResults = await Promise.all(
+                examData.questionResults.map(async (result: any) => {
+                  try {
+                    const response = await fetch(`http://localhost:8081/api/answers/question/${result.questionId}`);
+                    if (!response.ok) {
+                      throw new Error(`Error al obtener respuestas para la pregunta ${result.questionId}`);
+                    }
+                    const answersData = await response.json();
+                    const answers = answersData.data || [];
+
+                    // Encontrar la respuesta correcta
+                    const correctAnswer = answers.find((a: any) => a.isCorrect)?.text || result.correctAnswer;
+
+                    // Encontrar la respuesta del estudiante
+                    const studentAnswer = answers.find((a: any) => a.id.toString() === result.studentAnswer)?.text || result.studentAnswer;
+
+                    return {
+                      ...result,
+                      studentAnswer: studentAnswer,
+                      correctAnswer: correctAnswer,
+                      correct: studentAnswer === correctAnswer
+                    };
+                  } catch (error) {
+                    console.error(`Error al obtener respuestas para la pregunta ${result.questionId}:`, error);
+                    return result;
+                  }
+                })
+              );
+
+              setExamResult({
+                examId: examData.examId,
+                studentId: examData.studentId,
+                examTitle: examData.examTitle,
+                studentName: examData.studentName,
+                score: examData.score,
+                totalQuestions: examData.totalQuestions,
+                percentage: examData.percentage,
+                questionResults: questionResults,
+                generalComments: examData.generalComments
+              });
+
+              setHasSubmitted(true);
+              return true;
+            } else {
+              console.log('No se encontraron resultados del examen');
+              return false;
+            }
+          }
+          return false;
+        } catch (error) {
+          console.error("Error al verificar estado del examen:", error);
+          return false;
+        }
+      }
+      return false;
+    };
+
     const fetchData = async () => {
-      if (examId) {
-        const [examData, questionsData] = await Promise.all([
-          withLoading(() => getExamById(examId)),
-          withLoading(getQuestions) || [],
-        ])
+      if (id) {
+        try {
+          setIsLoading(true);
+          const examSubmitted = await checkExamStatus();
 
-        if (examData) {
-          setExam(examData)
-          // Filter questions that belong to this exam
-          const examQuestions = questionsData.filter((q) => q.examId === examId)
-          setQuestions(examQuestions)
+          if (!examSubmitted) {
+            const examData = await getExamById(Number(id));
+            if (examData) {
+              setExam(examData);
+              const examQuestions = examData.questions || [];
+              const questionsWithAnswers = await Promise.all(
+                examQuestions.map(async (question: Question) => {
+                  try {
+                    const response = await fetch(`http://localhost:8081/api/answers/question/${question.id}`);
+                    if (!response.ok) {
+                      throw new Error(`Error al obtener respuestas para la pregunta ${question.id}`);
+                    }
+                    const answersData = await response.json();
+                    return {
+                      ...question,
+                      answers: answersData.data || []
+                    };
+                  } catch (error) {
+                    console.error(`Error al obtener respuestas para la pregunta ${question.id}:`, error);
+                    return {
+                      ...question,
+                      answers: []
+                    };
+                  }
+                })
+              );
+              setQuestions(questionsWithAnswers);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching exam data:", error);
+        } finally {
+          setIsLoading(false);
         }
       }
-    }
+    };
 
-    fetchData()
-  }, [examId, withLoading])
+    fetchData();
+  }, [id]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({
+  const handleAnswerSelect = (questionId: number, answerId: number) => {
+    setSelectedAnswers(prev => ({
       ...prev,
-      [name]: value,
+      [questionId]: answerId
     }))
   }
 
-  const handleCheckboxChange = (checked: boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      correct: checked,
-    }))
-  }
+  const handleSubmitExam = async (e: React.FormEvent) => {
+    e.preventDefault(); // Prevenir el comportamiento por defecto del formulario
+    
+    if (!id) return;
 
-  const resetForm = () => {
-    setFormData({
-      text: "",
-      correct: false,
-    })
-    setSelectedQuestion(null)
-  }
-
-  const handleOpenChange = (open: boolean) => {
-    setOpen(open)
-    if (!open) {
-      resetForm()
+    const unansweredQuestions = questions.filter(q => !selectedAnswers[q.id]);
+    if (unansweredQuestions.length > 0) {
+      toast.error(`Por favor responde todas las preguntas. Faltan ${unansweredQuestions.length} preguntas.`);
+      return;
     }
-  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    setIsSubmitting(true);
+    try {
+      const answersMap: Record<string, string> = {};
+      Object.entries(selectedAnswers).forEach(([questionId, answerId]) => {
+        answersMap[questionId] = answerId.toString();
+      });
 
-    if (selectedQuestion) {
-      const answerData = {
-        question: { id: selectedQuestion.id },
-        text: formData.text,
-        correct: formData.correct,
+      const submissionData = {
+        studentId: 2,
+        answers: answersMap
+      };
+
+      const response = await fetch(`http://localhost:8081/api/exams/submit/${id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(submissionData)
+      });
+
+      const responseText = await response.text();
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (error) {
+        console.error('Error al parsear la respuesta:', error);
+        throw new Error('Error al procesar la respuesta del servidor');
       }
 
-      const newAnswer = await withLoading(() => createAnswer(answerData))
+      if (result.data) {
+        // Obtener los resultados detallados del examen
+        const resultsResponse = await fetch(`http://localhost:8081/api/exams/results/2?studentId=2`);
+        if (resultsResponse.ok) {
+          const resultsData = await resultsResponse.json();
+          console.log('Respuesta del servidor:', resultsData);
+          
+          if (resultsData.data && Array.isArray(resultsData.data) && resultsData.data.length > 0) {
+            const examData = resultsData.data[0];
+            console.log('Datos del examen:', examData);
+            
+            // Obtener las respuestas correctas para cada pregunta
+            const questionResults = await Promise.all(
+              examData.questionResults.map(async (result: any) => {
+                try {
+                  const response = await fetch(`http://localhost:8081/api/answers/question/${result.questionId}`);
+                  if (!response.ok) {
+                    throw new Error(`Error al obtener respuestas para la pregunta ${result.questionId}`);
+                  }
+                  const answersData = await response.json();
+                  const answers = answersData.data || [];
+                  
+                  // Encontrar la respuesta correcta
+                  const correctAnswer = answers.find((a: any) => a.isCorrect)?.text || result.correctAnswer;
+                  
+                  // Encontrar la respuesta del estudiante
+                  const studentAnswer = answers.find((a: any) => a.id.toString() === result.studentAnswer)?.text || result.studentAnswer;
+                  
+                  return {
+                    ...result,
+                    studentAnswer: studentAnswer,
+                    correctAnswer: correctAnswer,
+                    correct: studentAnswer === correctAnswer
+                  };
+                } catch (error) {
+                  console.error(`Error al obtener respuestas para la pregunta ${result.questionId}:`, error);
+                  return result;
+                }
+              })
+            );
 
-      if (newAnswer) {
-        // Refresh the exam data to show the new answer
-        const updatedExam = await withLoading(() => getExamById(examId))
-        if (updatedExam) {
-          setExam(updatedExam)
+            const examResultData = {
+              examId: examData.examId,
+              studentId: examData.studentId,
+              examTitle: examData.examTitle,
+              studentName: examData.studentName,
+              score: examData.score,
+              totalQuestions: examData.totalQuestions,
+              percentage: examData.percentage,
+              questionResults: questionResults,
+              generalComments: examData.generalComments
+            };
+
+            console.log('Datos procesados del examen:', examResultData);
+            setExamResult(examResultData);
+            setHasSubmitted(true);
+            
+            const percentage = (examData.score / examData.totalQuestions) * 100;
+            toast.success(
+              `¡Examen completado!\nPuntuación: ${examData.score}/${examData.totalQuestions}\nPorcentaje: ${percentage.toFixed(1)}%`
+            );
+          }
         }
-
-        setOpen(false)
-        resetForm()
       }
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al enviar las respuestas');
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al enviar el examen. Por favor intenta de nuevo.');
+    } finally {
+      setIsSubmitting(false);
     }
-  }
+  };
 
-  if (!exam && !isLoading) {
+  if (isLoading) {
     return (
-      <div className="container mx-auto py-10 text-center">
-        <p className="text-gray-500">Examen no encontrado.</p>
-        <Link href="/examenes">
-          <Button variant="outline" className="mt-4">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver a Exámenes
-          </Button>
-        </Link>
+      <div className="flex justify-center items-center min-h-screen">
+        <LoadingSpinner />
       </div>
-    )
+    );
   }
 
-  return (
-    <div className="container mx-auto">
-      <div className="flex items-center mb-6">
-        <Link href="/examenes">
-          <Button variant="outline" size="sm" className="mr-4">
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Volver
-          </Button>
-        </Link>
-        <h1 className="text-3xl font-bold">{exam?.title || "Cargando..."}</h1>
-      </div>
-
-      {isLoading ? (
-        <div className="flex justify-center py-10">
-          <LoadingSpinner size="lg" />
+  if (hasSubmitted && examResult) {
+    return (
+      <div className="container mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center">
+            <Link href="/examenes">
+              <Button variant="outline" size="sm" className="mr-4">
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Volver
+              </Button>
+            </Link>
+            <h1 className="text-3xl font-bold">{examResult.examTitle}</h1>
+          </div>
         </div>
-      ) : (
-        <>
-          <div className="mb-8">
-            <Card className="bg-primary-50">
+
+        <div className="space-y-6">
+
+          {examResult.generalComments && (
+            <Card className="bg-yellow-50 border-2 border-yellow-200">
               <CardHeader>
-                <CardTitle className="text-primary-800">Detalles del Examen</CardTitle>
+                <CardTitle className="text-yellow-800 text-2xl">Comentarios Generales</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="mb-2">
-                  <span className="font-medium">Curso:</span> {exam?.courseId}
-                </p>
-                <p className="mb-2">
-                  <span className="font-medium">Número de Preguntas:</span> {exam?.questions.length || 0}
-                </p>
+                <p className="text-lg text-yellow-700">{examResult.generalComments}</p>
               </CardContent>
             </Card>
-          </div>
+          )}
 
-          <div className="mb-6 flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Preguntas y Respuestas</h2>
-            <Dialog open={open} onOpenChange={handleOpenChange}>
-              <DialogTrigger asChild>
-                <Button className="bg-accent-600 hover:bg-accent-700" disabled={!exam || exam.questions.length === 0}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Añadir Respuesta
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <form onSubmit={handleSubmit}>
-                  <DialogHeader>
-                    <DialogTitle>Añadir Respuesta</DialogTitle>
-                    <DialogDescription>Selecciona una pregunta y añade una respuesta.</DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="question">Pregunta</Label>
-                      <select
-                        id="question"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        value={selectedQuestion?.id || ""}
-                        onChange={(e) => {
-                          const questionId = Number(e.target.value)
-                          const question = exam?.questions.find((q) => q.id === questionId) || null
-                          setSelectedQuestion(question)
-                        }}
-                        required
-                      >
-                        <option value="">Selecciona una pregunta</option>
-                        {exam?.questions.map((question) => (
-                          <option key={question.id} value={question.id}>
-                            {question.text}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="text">Respuesta</Label>
-                      <Input id="text" name="text" value={formData.text} onChange={handleInputChange} required />
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox id="correct" checked={formData.correct} onCheckedChange={handleCheckboxChange} />
-                      <Label htmlFor="correct">Es la respuesta correcta</Label>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      type="submit"
-                      className="bg-accent-600 hover:bg-accent-700"
-                      disabled={isLoading || !selectedQuestion}
-                    >
-                      Añadir
-                      {isLoading && <LoadingSpinner className="ml-2" />}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {exam?.questions.length === 0 ? (
-            <div className="text-center py-10">
-              <p className="text-gray-500">No hay preguntas disponibles para este examen.</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {exam?.questions.map((question) => (
-                <Card key={question.id} className="overflow-hidden">
-                  <CardHeader className="pb-2 bg-secondary-100">
-                    <CardTitle className="text-secondary-800">{question.text}</CardTitle>
+          {examResult.questionResults && examResult.questionResults.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold text-gray-800">Detalle de Respuestas</h2>
+              {examResult.questionResults.map((result, index) => (
+                <Card key={result.questionId} className={`border-2 ${result.correct ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                  <CardHeader>
+                    <CardTitle className={`text-lg ${result.correct ? 'text-green-800' : 'text-red-800'}`}>
+                      Pregunta {index + 1}: {result.questionText}
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="pt-4">
-                    <h3 className="font-medium mb-2">Respuestas:</h3>
-                    <ul className="space-y-2 pl-5 list-disc">
-                      {/* Here we would map through answers if we had them in the API response */}
-                      <li className="text-gray-500">No hay respuestas disponibles para esta pregunta.</li>
-                    </ul>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p className="font-semibold">Tu respuesta: {result.studentAnswer}</p>
+                      <p className="font-semibold">Respuesta correcta: {result.correctAnswer}</p>
+                      <div className="flex items-center">
+                        {result.correct ? (
+                          <CheckCircle2 className="h-5 w-5 text-green-500 mr-2" />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-red-500 mr-2" />
+                        )}
+                        <span className={result.correct ? 'text-green-700' : 'text-red-700'}>
+                          {result.correct ? 'Correcta' : 'Incorrecta'}
+                        </span>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
           )}
-        </>
-      )}
+        </div>
+      </div>
+    );
+  }
+
+  if (!exam || questions.length === 0) {
+    return (
+      <div className="container mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center">
+            <Link href="/examenes">
+              <Button variant="outline" size="sm" className="mr-4">
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Volver
+              </Button>
+            </Link>
+            <h1 className="text-3xl font-bold">Examen no disponible</h1>
+          </div>
+        </div>
+        <Card className="bg-red-50 border-2 border-red-200">
+          <CardContent className="pt-6">
+            <p className="text-lg text-red-700">No se puede acceder a este examen en este momento.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <Link href="/examenes">
+            <Button variant="outline" size="sm" className="mr-4">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Volver
+            </Button>
+          </Link>
+          <h1 className="text-3xl font-bold">{exam.title}</h1>
+        </div>
+        <form onSubmit={handleSubmitExam}>
+          <Button 
+            type="submit"
+            disabled={isSubmitting || Object.keys(selectedAnswers).length === 0}
+            className="bg-primary-600 hover:bg-primary-700"
+          >
+            {isSubmitting ? (
+              <>
+                <LoadingSpinner />
+                Enviando...
+              </>
+            ) : (
+              'Enviar Examen'
+            )}
+          </Button>
+        </form>
+      </div>
+
+      <div className="space-y-6">
+        {questions.map((question) => (
+          <Card key={question.id} className="overflow-hidden">
+            <CardHeader className="pb-2 bg-secondary-100">
+              <CardTitle className="text-secondary-800">{question.text}</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <h3 className="font-medium mb-2">Respuestas:</h3>
+              <ul className="space-y-2 pl-5">
+                {question.answers && question.answers.length > 0 ? (
+                  question.answers.map((answer) => (
+                    <li key={answer.id} className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        name={`question-${question.id}`}
+                        id={`answer-${answer.id}`}
+                        value={answer.id}
+                        checked={selectedAnswers[question.id] === answer.id}
+                        onChange={() => handleAnswerSelect(question.id, answer.id)}
+                        className="h-4 w-4 text-primary-600 focus:ring-primary-500"
+                        disabled={isSubmitting}
+                      />
+                      <label htmlFor={`answer-${answer.id}`} className="text-gray-700">
+                        {answer.text}
+                      </label>
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-gray-500">No hay respuestas disponibles para esta pregunta.</li>
+                )}
+              </ul>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
-  )
+  );
 }

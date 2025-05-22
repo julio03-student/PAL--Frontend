@@ -15,6 +15,19 @@ export interface User {
   roles: Role[]
 }
 
+export interface Exam {
+  id: number
+  title: string
+  courseId: number
+  questions: {
+    answers: any
+    id: number
+    text: string
+    options: string[]
+    correctOption: string
+  }[]
+}
+
 export interface Category {
   id: number
   name: string
@@ -27,6 +40,14 @@ export interface Content {
   fileUrl?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface Question {
+  id: number
+  text: string
+  options: string[]
+  correctOption: string,
+  answers: Answer[]
 }
 
 export interface Course {
@@ -51,6 +72,13 @@ export interface Payment {
   paymentDate: string
 }
 
+export interface Answer {
+  id: number
+  questionId: number 
+  text: string
+  correct: boolean
+}
+
 export interface Enrollment {
   id: number
   user: User
@@ -72,6 +100,9 @@ export interface CourseSearchParams {
   page?: number
   pageSize?: number
 }
+
+
+
 
 export interface CourseSearchResult {
   courses: {
@@ -103,6 +134,72 @@ export async function getUsers(): Promise<User[]> {
   } catch (error) {
     console.error("Error fetching users:", error)
     return []
+  }
+}
+
+export async function createAnswer(answerData: {
+  questionId: number
+  userId: number
+  option: string
+}): Promise<Answer | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/answers/create`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(answerData),
+    })
+
+    const data = await response.json()
+    return data.data ? data.data[0] : null
+  } catch (error) {
+    console.error("Error creating answer:", error)
+    return null
+  }
+}
+
+export async function getAnswersByUser(userId: number): Promise<Answer[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/answers/user/${userId}`)
+    const data = await response.json()
+    return data.data || []
+  } catch (error) {
+    console.error("Error fetching answers by user:", error)
+    return []
+  }
+}
+
+export async function getQuestions(): Promise<Question[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/questions/all`)
+    const data = await response.json()
+    return data.data || []
+  } catch (error) {
+    console.error("Error fetching questions:", error)
+    return []
+  }
+}
+
+export async function getExams(): Promise<Exam[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/exams/all`)
+    const data = await response.json()
+    return data.data || []
+  } catch (error) {
+    console.error("Error fetching exams:", error)
+    return []
+  }
+}
+
+export async function getExamById(id: number): Promise<Exam | null> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/exams/${id}`)
+    const data = await response.json()
+    return data.data ? data.data[0] : null
+  } catch (error) {
+    console.error("Error fetching exam by id:", error)
+    return null
   }
 }
 
@@ -506,6 +603,7 @@ export async function getCertificate(courseId: number, userId: number): Promise<
   return data.data[0].id
 }
 
+
 export async function downloadCertificate(certificateId: number): Promise<Blob> {
   console.log("Enviando solicitud para descargar certificado:", { certificateId })
   const response = await fetch(`${API_BASE_URL}/certificates/download/${certificateId}`, {
@@ -518,6 +616,7 @@ export async function downloadCertificate(certificateId: number): Promise<Blob> 
 
   return response.blob()
 }
+
 
 export async function getProgressReport(courseId: number, format: 'json' | 'csv' | 'pdf' = 'json'): Promise<Blob | any> {
   try {
@@ -543,3 +642,5 @@ export async function getProgressReport(courseId: number, format: 'json' | 'csv'
     throw error
   }
 }
+
+
