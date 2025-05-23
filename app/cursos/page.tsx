@@ -413,8 +413,8 @@ export default function CoursesPage() {
   }
 
   return (
-    <div className="container mx-auto">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto px-6 py-4">
+      <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold mt-2 text-primary">Cursos</h1>
         <Dialog open={open} onOpenChange={handleOpenChange}>
           <DialogTrigger asChild>
@@ -772,7 +772,7 @@ export default function CoursesPage() {
           <p className="text-muted-foreground">No hay cursos disponibles. Crea uno nuevo para comenzar.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {courses.map((course) => (
             <Card key={course.id} className="overflow-hidden border shadow-sm hover:shadow-md transition-shadow">
               <CardHeader className="pb-2 bg-gradient-to-r from-primary to-primary/90 text-primary-foreground">
@@ -781,8 +781,8 @@ export default function CoursesPage() {
                   Categoría: {course.category.name} | Instructor: {course.instructor.username}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground line-clamp-3 mb-2">{course.description}</p>
+              <CardContent className="p-6">
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{course.description}</p>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="font-medium text-primary">
                     Precio: {course.price === 0 ? "Gratis" : `$${course.price.toFixed(2)}`}
@@ -856,41 +856,47 @@ export default function CoursesPage() {
                 )}
               </CardContent>
               
-              <CardFooter className="flex justify-end space-x-2 pt-0 bg-accent">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="hover:bg-accent hover:text-accent-foreground">
-                      <FileText className="h-4 w-4 mr-1" />
-                      Reportes
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => handleGenerateReport(course.id, 'csv')}>
-                      <FileDown className="h-4 w-4 mr-2" />
-                      Descargar CSV
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleGenerateReport(course.id, 'pdf')}>
-                      <FileDown className="h-4 w-4 mr-2" />
-                      Descargar PDF
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button variant="outline" size="sm" onClick={() => handleEdit(course)} className="hover:bg-accent hover:text-accent-foreground">
-                  <Edit className="h-4 w-4 mr-1" />                  
-                </Button>
-                <Button variant="destructive" size="sm" onClick={() => handleDelete(course.id)}>
-                  <Trash2 className="h-4 w-4 mr-1" />                  
-                </Button>
-                <Link href={`/cursos/${course.id}`}>
-                  <Button variant="outline" size="sm" className="hover:bg-accent hover:text-accent-foreground">
-                    <Book className="h-4 w-4 mr-1" />
-                    Ver Detalle
+              <CardFooter className="flex flex-wrap justify-between gap-3 p-4 bg-gray-50">
+                <div className="flex gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="hover:bg-accent hover:text-accent-foreground">
+                        <FileText className="h-4 w-4 mr-1" />
+                        Reportes
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => handleGenerateReport(course.id, 'csv')}>
+                        <FileDown className="h-4 w-4 mr-2" />
+                        Descargar CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleGenerateReport(course.id, 'pdf')}>
+                        <FileDown className="h-4 w-4 mr-2" />
+                        Descargar PDF
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button variant="outline" size="sm" onClick={() => handleEdit(course)} className="hover:bg-accent hover:text-accent-foreground">
+                    <Edit className="h-4 w-4 mr-1" />
+                    Editar
                   </Button>
-                </Link>
-                <Button variant="default" size="sm" onClick={() => handleEnroll(course)} className="bg-primary hover:bg-primary/90">
-                  <GraduationCap className="h-4 w-4 mr-1" />
-                  Inscribirme
-                </Button>
+                  <Button variant="destructive" size="sm" onClick={() => handleDelete(course.id)}>
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Eliminar
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Link href={`/cursos/${course.id}`}>
+                    <Button variant="outline" size="sm" className="hover:bg-accent hover:text-accent-foreground">
+                      <Book className="h-4 w-4 mr-1" />
+                      Ver Detalle
+                    </Button>
+                  </Link>
+                  <Button variant="default" size="sm" onClick={() => handleEnroll(course)} className="bg-primary hover:bg-primary/90">
+                    <GraduationCap className="h-4 w-4 mr-1" />
+                    Inscribirme
+                  </Button>
+                </div>
               </CardFooter>
             </Card>
           ))}
