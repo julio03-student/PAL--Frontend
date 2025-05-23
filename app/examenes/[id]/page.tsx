@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { type Exam, type Question, getExamById, Answer } from "@/lib/api"
-import { ArrowLeft, CheckCircle2, XCircle } from "lucide-react"
+import { ArrowLeft, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { useLoading } from "@/hooks/use-loading"
 import Link from "next/link"
@@ -46,6 +46,8 @@ export default function ExamDetailPage() {
   const [examResult, setExamResult] = useState<ExamResult | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [hasSubmitted, setHasSubmitted] = useState(false)
+  const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(new Set())
+  const [expandedResults, setExpandedResults] = useState<Set<number>>(new Set())
 
   const { isLoading: useLoadingIsLoading, withLoading } = useLoading()
 
@@ -288,6 +290,48 @@ export default function ExamDetailPage() {
     }
   };
 
+  const toggleQuestionExpansion = (questionId: number) => {
+    setExpandedQuestions(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(questionId)) {
+        newSet.delete(questionId)
+      } else {
+        newSet.add(questionId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleResultExpansion = (questionId: number) => {
+    setExpandedResults(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(questionId)) {
+        newSet.delete(questionId)
+      } else {
+        newSet.add(questionId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleAllQuestions = () => {
+    if (expandedQuestions.size === questions.length) {
+      setExpandedQuestions(new Set())
+    } else {
+      setExpandedQuestions(new Set(questions.map(q => q.id)))
+    }
+  }
+
+  const toggleAllResults = () => {
+    if (examResult?.questionResults) {
+      if (expandedResults.size === examResult.questionResults.length) {
+        setExpandedResults(new Set())
+      } else {
+        setExpandedResults(new Set(examResult.questionResults.map(r => r.questionId)))
+      }
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -326,30 +370,82 @@ export default function ExamDetailPage() {
 
           {examResult.questionResults && examResult.questionResults.length > 0 && (
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold text-gray-800">Detalle de Respuestas</h2>
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-800">Detalle de Respuestas</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleAllResults}
+                  className="text-gray-600 hover:text-gray-800"
+                >
+                  {expandedResults.size === examResult.questionResults.length ? (
+                    <>
+                      <ChevronUp className="h-4 w-4 mr-1" />
+                      Colapsar Todas
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-4 w-4 mr-1" />
+                      Expandir Todas
+                    </>
+                  )}
+                </Button>
+              </div>
               {examResult.questionResults.map((result, index) => (
                 <Card key={result.questionId} className={`border-2 ${result.correct ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
-                  <CardHeader>
-                    <CardTitle className={`text-lg ${result.correct ? 'text-green-800' : 'text-red-800'}`}>
-                      Pregunta {index + 1}: {result.questionText}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <p className="font-semibold">Tu respuesta: {result.studentAnswer}</p>
-                      <p className="font-semibold">Respuesta correcta: {result.correctAnswer}</p>
-                      <div className="flex items-center">
-                        {result.correct ? (
-                          <CheckCircle2 className="h-5 w-5 text-green-500 mr-2" />
-                        ) : (
-                          <XCircle className="h-5 w-5 text-red-500 mr-2" />
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className={`text-lg ${result.correct ? 'text-green-800' : 'text-red-800'}`}>
+                        Pregunta {index + 1}
+                        {expandedResults.has(result.questionId) && (
+                          <span className="block text-sm font-normal mt-1">
+                            {result.questionText}
+                          </span>
                         )}
-                        <span className={result.correct ? 'text-green-700' : 'text-red-700'}>
-                          {result.correct ? 'Correcta' : 'Incorrecta'}
-                        </span>
+                      </CardTitle>
+                      <div className="flex items-center gap-2">
+                        {result.correct ? (
+                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-red-500" />
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleResultExpansion(result.questionId)}
+                          className="h-6 w-6 p-0 hover:bg-gray-100"
+                        >
+                          {expandedResults.has(result.questionId) ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
                       </div>
                     </div>
-                  </CardContent>
+                  </CardHeader>
+                  
+                  {expandedResults.has(result.questionId) && (
+                    <CardContent>
+                      <div className="space-y-2">
+                        <p className="font-semibold">Tu respuesta: 
+                          <span className={`ml-2 ${result.correct ? 'text-green-700' : 'text-red-700'}`}>
+                            {result.studentAnswer}
+                          </span>
+                        </p>
+                        <p className="font-semibold">Respuesta correcta: 
+                          <span className="ml-2 text-green-700">
+                            {result.correctAnswer}
+                          </span>
+                        </p>
+                        <div className="flex items-center mt-3">
+                          <span className={result.correct ? 'text-green-700 font-medium' : 'text-red-700 font-medium'}>
+                            {result.correct ? 'Correcta' : 'Incorrecta'}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  )}
                 </Card>
               ))}
             </div>
@@ -392,7 +488,12 @@ export default function ExamDetailPage() {
               Volver
             </Button>
           </Link>
-          <h1 className="text-3xl font-bold">{exam.title}</h1>
+          <div>
+            <h1 className="text-3xl font-bold">{exam.title}</h1>
+            <p className="text-sm text-gray-600 mt-1">
+              Progreso: {Object.keys(selectedAnswers).length} de {questions.length} preguntas respondidas
+            </p>
+          </div>
         </div>
         <form onSubmit={handleSubmitExam}>
           <Button 
@@ -412,38 +513,103 @@ export default function ExamDetailPage() {
         </form>
       </div>
 
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-lg font-semibold text-gray-700">
+          Preguntas del Examen
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={toggleAllQuestions}
+          className="text-gray-600 hover:text-gray-800"
+        >
+          {expandedQuestions.size === questions.length ? (
+            <>
+              <ChevronUp className="h-4 w-4 mr-1" />
+              Colapsar Todas
+            </>
+          ) : (
+            <>
+              <ChevronDown className="h-4 w-4 mr-1" />
+              Expandir Todas
+            </>
+          )}
+        </Button>
+      </div>
+
       <div className="space-y-6">
-        {questions.map((question) => (
+        {questions.map((question, index) => (
           <Card key={question.id} className="overflow-hidden">
             <CardHeader className="pb-2 bg-secondary-100">
-              <CardTitle className="text-secondary-800">{question.text}</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-secondary-800">
+                  Pregunta {index + 1}
+                  {expandedQuestions.has(question.id) && (
+                    <span className="block text-sm font-normal mt-1">
+                      {question.text}
+                    </span>
+                  )}
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => toggleQuestionExpansion(question.id)}
+                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                >
+                  {expandedQuestions.has(question.id) ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent className="pt-4">
-              <h3 className="font-medium mb-2">Respuestas:</h3>
-              <ul className="space-y-2 pl-5">
-                {question.answers && question.answers.length > 0 ? (
-                  question.answers.map((answer) => (
-                    <li key={answer.id} className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        name={`question-${question.id}`}
-                        id={`answer-${answer.id}`}
-                        value={answer.id}
-                        checked={selectedAnswers[question.id] === answer.id}
-                        onChange={() => handleAnswerSelect(question.id, answer.id)}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500"
-                        disabled={isSubmitting}
-                      />
-                      <label htmlFor={`answer-${answer.id}`} className="text-gray-700">
-                        {answer.text}
-                      </label>
-                    </li>
-                  ))
-                ) : (
-                  <li className="text-gray-500">No hay respuestas disponibles para esta pregunta.</li>
+            
+            {expandedQuestions.has(question.id) && (
+              <CardContent className="pt-4">
+                <h3 className="font-medium mb-2">Respuestas:</h3>
+                <ul className="space-y-2 pl-5">
+                  {question.answers && question.answers.length > 0 ? (
+                    question.answers.map((answer) => (
+                      <li key={answer.id} className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name={`question-${question.id}`}
+                          id={`answer-${answer.id}`}
+                          value={answer.id}
+                          checked={selectedAnswers[question.id] === answer.id}
+                          onChange={() => handleAnswerSelect(question.id, answer.id)}
+                          className="h-4 w-4 text-primary-600 focus:ring-primary-500"
+                          disabled={isSubmitting}
+                        />
+                        <label htmlFor={`answer-${answer.id}`} className="text-gray-700">
+                          {answer.text}
+                        </label>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-gray-500">No hay respuestas disponibles para esta pregunta.</li>
+                  )}
+                </ul>
+                
+                {/* Indicador de respuesta seleccionada cuando está colapsado */}
+                {selectedAnswers[question.id] && (
+                  <div className="mt-3 text-sm text-green-600 font-medium">
+                    ✓ Respuesta seleccionada
+                  </div>
                 )}
-              </ul>
-            </CardContent>
+              </CardContent>
+            )}
+            
+            {/* Vista colapsada: mostrar si hay respuesta seleccionada */}
+            {!expandedQuestions.has(question.id) && selectedAnswers[question.id] && (
+              <CardContent className="py-2 border-t border-gray-200 bg-green-50">
+                <div className="text-sm text-green-600 font-medium flex items-center">
+                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                  Respondida
+                </div>
+              </CardContent>
+            )}
           </Card>
         ))}
       </div>

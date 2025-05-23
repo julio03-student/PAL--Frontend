@@ -19,7 +19,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Exam, getCourses, getExams,type Course } from "@/lib/api"
-import { Trash2, Plus, FileText } from "lucide-react"
+import { Trash2, Plus, FileText, ChevronDown, ChevronUp } from "lucide-react"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { useLoading } from "@/hooks/use-loading"
 import Link from "next/link"
@@ -28,11 +28,20 @@ export default function ExamsPage() {
   const [exams, setExams] = useState<Exam[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [open, setOpen] = useState(false)
+  const [expandedExams, setExpandedExams] = useState<Set<number>>(new Set())
 
   const [formData, setFormData] = useState({
     title: "",
     courseId: 0,
-    questions: [{ text: "", examId: 0 }],
+    questions: [
+      {
+        text: "",
+        examId: 0,
+        answers: [
+          { text: "", isCorrect: false }
+        ]
+      }
+    ],
   })
 
   const { isLoading, withLoading } = useLoading()
@@ -75,7 +84,7 @@ export default function ExamsPage() {
   const addQuestion = () => {
     setFormData((prev) => ({
       ...prev,
-      questions: [...prev.questions, { text: "", examId: 0 }],
+      questions: [...prev.questions, { text: "", examId: 0, answers: [{ text: "", isCorrect: false }] }],
     }))
   }
 
@@ -90,11 +99,46 @@ export default function ExamsPage() {
     }
   }
 
+  const addAnswer = (qIdx: number) => {
+    setFormData(prev => {
+      const questions = [...prev.questions];
+      questions[qIdx].answers = [...(questions[qIdx].answers || []), { text: "", isCorrect: false }];
+      return { ...prev, questions };
+    });
+  };
+
+  const updateAnswer = (qIdx: number, aIdx: number, value: string) => {
+    setFormData(prev => {
+      const questions = [...prev.questions];
+      questions[qIdx].answers[aIdx].text = value;
+      return { ...prev, questions };
+    });
+  };
+
+  const removeAnswer = (qIdx: number, aIdx: number) => {
+    setFormData(prev => {
+      const questions = [...prev.questions];
+      questions[qIdx].answers.splice(aIdx, 1);
+      return { ...prev, questions };
+    });
+  };
+
+  const markCorrect = (qIdx: number, aIdx: number) => {
+    setFormData(prev => {
+      const questions = [...prev.questions];
+      questions[qIdx].answers = questions[qIdx].answers.map((ans, idx) => ({
+        ...ans,
+        isCorrect: idx === aIdx
+      }));
+      return { ...prev, questions };
+    });
+  };
+
   const resetForm = () => {
     setFormData({
       title: "",
       courseId: 0,
-      questions: [{ text: "", examId: 0 }],
+      questions: [{ text: "", examId: 0, answers: [{ text: "", isCorrect: false }] }],
     })
   }
 
@@ -129,6 +173,18 @@ export default function ExamsPage() {
   const getCourseTitle = (courseId: number) => {
     const course = courses.find((c) => c.id === courseId)
     return course ? course.title : "Curso no encontrado"
+  }
+
+  const toggleExpansion = (examId: number) => {
+    setExpandedExams(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(examId)) {
+        newSet.delete(examId)
+      } else {
+        newSet.add(examId)
+      }
+      return newSet
+    })
   }
 
   return (
@@ -187,22 +243,59 @@ export default function ExamsPage() {
                       <Plus className="h-4 w-4 mr-1" /> Añadir Pregunta
                     </Button>
                   </div>
-                  {formData.questions.map((question, index) => (
-                    <div key={index} className="flex gap-2 items-start">
+                  {formData.questions.map((question, qIdx) => (
+                    <div key={qIdx} className="flex flex-col gap-2 border p-2 rounded-md bg-gray-50">
                       <Textarea
-                        placeholder={`Pregunta ${index + 1}`}
+                        placeholder={`Pregunta ${qIdx + 1}`}
                         value={question.text}
-                        onChange={(e) => handleQuestionChange(index, e.target.value)}
+                        onChange={(e) => handleQuestionChange(qIdx, e.target.value)}
                         required
                         className="flex-1"
                       />
+                      <div className="ml-4 flex flex-col gap-2">
+                        {question.answers?.map((answer, aIdx) => (
+                          <div key={aIdx} className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name={`correct-${qIdx}`}
+                              checked={answer.isCorrect}
+                              onChange={() => markCorrect(qIdx, aIdx)}
+                            />
+                            <Input
+                              value={answer.text}
+                              onChange={e => updateAnswer(qIdx, aIdx, e.target.value)}
+                              placeholder={`Respuesta ${aIdx + 1}`}
+                              required
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeAnswer(qIdx, aIdx)}
+                              className="text-destructive hover:bg-destructive/10"
+                              disabled={question.answers.length <= 1}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addAnswer(qIdx)}
+                          className="text-accent-600 border-accent-600 hover:bg-accent-100"
+                        >
+                          <Plus className="h-4 w-4 mr-1" /> Añadir Respuesta
+                        </Button>
+                      </div>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => removeQuestion(index)}
+                        onClick={() => removeQuestion(qIdx)}
                         disabled={formData.questions.length <= 1}
-                        className="mt-1 text-destructive hover:bg-destructive/10"
+                        className="mt-1 text-destructive hover:bg-destructive/10 self-end"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -234,9 +327,41 @@ export default function ExamsPage() {
                 <CardDescription>Curso: {getCourseTitle(exam.courseId)}</CardDescription>
               </CardHeader>
               <CardContent className="pt-4">
-                <p className="text-sm text-gray-600 mb-2">
-                  <span className="font-medium">Preguntas:</span> {exam.questions.length}
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-gray-600">
+                    <span className="font-medium">Preguntas:</span> {Array.isArray(exam.questions) ? exam.questions.length : 0}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleExpansion(exam.id)}
+                    className="h-6 w-6 p-0 hover:bg-gray-100"
+                  >
+                    {expandedExams.has(exam.id) ? (
+                      <ChevronUp className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                
+                {expandedExams.has(exam.id) && (
+                  <div className="space-y-2 mt-3">
+                    {exam.questions.map((q, idx) => (
+                      <div key={idx} className="border-l-2 border-gray-200 pl-3 py-1">
+                        <p className="text-sm font-medium text-gray-700">
+                          Pregunta {idx + 1}:
+                        </p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {q.text.length > 100 ? `${q.text.substring(0, 100)}...` : q.text}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Respuestas: {Array.isArray(q.answers) ? q.answers.length : 0}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
               <CardFooter className="flex justify-between space-x-2 pt-0">
                 <Link href={`/examenes/${exam.id}`}>
@@ -261,11 +386,41 @@ export default function ExamsPage() {
     </div>
   )
 }
-function deleteExam(id: number) {
-  throw new Error("Function not implemented.")
+
+async function createExam(formData: {
+  title: string;
+  courseId: number;
+  questions: { text: string; examId: number; answers?: { text: string; isCorrect: boolean }[] }[];
+}) {
+  try {
+    // Solo enviamos text y examId de cada pregunta
+    const body = {
+      title: formData.title,
+      courseId: formData.courseId,
+      questions: formData.questions.map(q => ({
+        text: q.text,
+        examId: q.examId
+      }))
+    };
+
+    const response = await fetch("http://localhost:8081/api/exams/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      throw new Error("Error al crear el examen");
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
 }
 
-function createExam(formData: { title: string; courseId: number; questions: { text: string; examId: number }[] }) {
+function deleteExam(id: number) {
   throw new Error("Function not implemented.")
 }
 
