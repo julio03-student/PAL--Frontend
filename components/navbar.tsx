@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Book, Layers, Users, Search, GraduationCap, ChevronUp, ChevronDown } from "lucide-react"
+import { Book, Layers, Users, Search, GraduationCap, ChevronUp, ChevronDown, LogOut } from "lucide-react"
 import { ThemeSelector } from "@/components/theme-selector"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,7 @@ export function Navbar() {
   const [showNavbar, setShowNavbar] = useState(true);
 
   return (
-    <div className="navbar-container" style={{ position: "relative" }}>
+    <div className="fixed top-0 left-0 right-0 bottom-0 h-10">
 
       {showNavbar && (
         <nav className="navbar">
@@ -25,6 +25,17 @@ export function Navbar() {
                   </Link>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button 
+                  className="bg-red-400 text-white px-2 py-2 rounded-md hover:bg-red-500 transition-colors duration-200 border-2"
+                  onClick={() => {
+                    fetch('http://localhost:8081/autenticacion/logout', {
+                      method: 'POST',
+                      credentials: 'include',
+                    });
+                    window.location.href = '/';
+                  }}>
+                    <LogOut className="w-5 h-5 mr-2" />
+                  </button>
                   <ThemeSelector />
                 </div>
               </div>
@@ -108,7 +119,7 @@ export function Navbar() {
       {!showNavbar && (
         <nav className="navbar">
           <nav className="navbar bg-background border-b border-border fixed w-full z-40">
-          <div className="px-3 py-3 lg:px-5 lg:pl-3">
+            <div className="px-3 py-3 lg:px-5 lg:pl-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center justify-start">
                   <Link href="/" className="flex ml-2 md:mr-24">
@@ -120,7 +131,7 @@ export function Navbar() {
                 </div>
               </div>
             </div>
-            
+
             <button
               onClick={() => setShowNavbar(true)}
               className="m-2 border rounded shadow px-2 py-1"
@@ -130,8 +141,6 @@ export function Navbar() {
             </button>
           </nav>
         </nav>
-
-
       )}
     </div>
   )

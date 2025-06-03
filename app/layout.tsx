@@ -13,21 +13,8 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          <Navbar />
-          <Sidebar />
-          <div className="p-4 sm:ml-64 pt-28">
-            <div className="p-4 border-2 border-gray-200 border-dashed rounded-lg">
               {children}
-            </div>
-          </div>
-          <Toaster richColors position="top-right" />
-        </ThemeProvider>
       </body>
     </html>
   )
 }
-
-export const metadata = {
-  generator: 'v0.dev'
-};

@@ -618,29 +618,4 @@ export async function downloadCertificate(certificateId: number): Promise<Blob> 
 }
 
 
-export async function getProgressReport(courseId: number, format: 'json' | 'csv' | 'pdf' = 'json'): Promise<Blob | any> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/reports/progress/${courseId}?format=${format}`, {
-      method: 'GET',
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.message || 'Error al generar el reporte')
-    }
-
-    // Si el formato es JSON, retornamos los datos parseados
-    if (format === 'json') {
-      const data = await response.json()
-      return data.data
-    }
-
-    // Para CSV y PDF retornamos el blob
-    return response.blob()
-  } catch (error) {
-    console.error("Error generating report:", error)
-    throw error
-  }
-}
-
 
