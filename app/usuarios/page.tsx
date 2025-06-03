@@ -192,11 +192,11 @@ export default function UsersPage() {
                 </div>
               </CardContent>
               <CardFooter className="flex justify-end space-x-2 pt-0">
-                <Button variant="outline" size="sm">
                 <Link href={`/usuarios/${user.id}`}>
-                  Ver Detalles
+                  <Button variant="outline" size="sm">
+                    Ver Detalles
+                  </Button>
                 </Link>
-                </Button>
               </CardFooter>
             </Card>
           ))}
