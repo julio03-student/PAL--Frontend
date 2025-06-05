@@ -617,5 +617,168 @@ export async function downloadCertificate(certificateId: number): Promise<Blob> 
   return response.blob()
 }
 
+// Función helper para obtener el token de autenticación
+function getAuthToken(): string | null {
+  // Primero intentar obtener del localStorage/sessionStorage
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
+  }
+  return null
+}
+
+// Función helper para obtener el usuario actual
+export function getCurrentUser(): { id: number; roles: string[] } | null {
+  if (typeof window !== 'undefined') {
+    const userStr = localStorage.getItem('currentUser') || sessionStorage.getItem('currentUser')
+    if (userStr) {
+      try {
+        return JSON.parse(userStr)
+      } catch (error) {
+        console.error('Error parsing user data:', error)
+        return null
+      }
+    }
+  }
+  return null
+}
+
+// Función helper para verificar si el usuario tiene un rol específico
+export function hasRole(role: string): boolean {
+  const user = getCurrentUser()
+  return user?.roles?.includes(role) || false
+}
+
+// Función mejorada para determinar qué exámenes puede ver el usuario actual
+export async function getAuthorizedExams(): Promise<Exam[]> {
+  const user = getCurrentUser()
+  
+  if (!user) {
+    throw new Error("Usuario no autenticado")
+  }
+
+  try {
+    // Preparar headers con autorización
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json"
+    }
+    
+    const token = getAuthToken()
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
+    }
+
+    let endpoint = `${API_BASE_URL}/exams/all`
+    
+    // Determinar endpoint según el rol
+    if (hasRole('ADMIN')) {
+      // Los admins pueden ver todos los exámenes
+      endpoint = `${API_BASE_URL}/exams/all`
+    } else if (hasRole('INSTRUCTOR')) {
+      // Los instructores solo ven exámenes de sus cursos
+      endpoint = `${API_BASE_URL}/exams/instructor/${user.id}`
+    } else if (hasRole('STUDENT')) {
+      // Los estudiantes solo ven exámenes de sus cursos inscritos
+      endpoint = `${API_BASE_URL}/exams/student/${user.id}`
+    }
+
+    const response = await fetch(endpoint, { headers })
+
+    if (!response.ok) {
+      if (response.status === 403) {
+        throw new Error("No tienes permisos para ver estos exámenes")
+      }
+      if (response.status === 401) {
+        throw new Error("Sesión expirada. Por favor inicia sesión nuevamente")
+      }
+      throw new Error("Error al obtener los exámenes")
+    }
+
+    const data = await response.json()
+    return data.data || []
+  } catch (error) {
+    console.error("Error getting authorized exams:", error)
+    throw error
+  }
+}
+
+// Función actualizada para crear exámenes con mejor manejo de errores
+export async function createExam(examData: {
+  title: string
+  courseId: number
+  questions: { text: string; examId: number; answers?: { text: string; isCorrect: boolean }[] }[]
+}): Promise<Exam | null> {
+  try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json"
+    }
+    
+    const token = getAuthToken()
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
+    }
+
+    const response = await fetch(`${API_BASE_URL}/exams/create`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(examData),
+    })
+
+    if (!response.ok) {
+      if (response.status === 403) {
+        throw new Error("No tienes permisos para crear exámenes")
+      }
+      if (response.status === 401) {
+        throw new Error("Sesión expirada. Por favor inicia sesión nuevamente")
+      }
+      if (response.status === 400) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Datos del examen inválidos")
+      }
+      throw new Error("Error al crear el examen")
+    }
+
+    const data = await response.json()
+    return data.data ? data.data[0] : null
+  } catch (error) {
+    console.error("Error creating exam:", error)
+    throw error
+  }
+}
+
+// Función actualizada para eliminar exámenes con mejor manejo de errores
+export async function deleteExam(id: number): Promise<boolean> {
+  try {
+    const headers: Record<string, string> = {}
+    
+    const token = getAuthToken()
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
+    }
+
+    const response = await fetch(`${API_BASE_URL}/exams/delete/${id}`, {
+      method: "DELETE",
+      headers
+    })
+
+    if (!response.ok) {
+      if (response.status === 403) {
+        throw new Error("No tienes permisos para eliminar este examen")
+      }
+      if (response.status === 401) {
+        throw new Error("Sesión expirada. Por favor inicia sesión nuevamente")
+      }
+      if (response.status === 404) {
+        throw new Error("Examen no encontrado")
+      }
+      throw new Error("Error al eliminar el examen")
+    }
+
+    return response.status === 204 || response.ok
+  } catch (error) {
+    console.error("Error deleting exam:", error)
+    throw error
+  }
+}
+
 
 

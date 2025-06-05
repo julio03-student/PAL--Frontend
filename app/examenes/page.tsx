@@ -18,17 +18,28 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Exam, getCourses, getExams,type Course } from "@/lib/api"
-import { Trash2, Plus, FileText, ChevronDown, ChevronUp } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { 
+  Exam, 
+  getCourses, 
+  getAuthorizedExams,
+  createExam,
+  deleteExam,
+  type Course 
+} from "@/lib/api"
+import { useAuth } from "@/components/auth-provider"
+import { Trash2, Plus, FileText, ChevronDown, ChevronUp, AlertCircle, Lock } from "lucide-react"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { useLoading } from "@/hooks/use-loading"
 import Link from "next/link"
 
 export default function ExamsPage() {
+  const { user, isAuthenticated, hasRole } = useAuth()
   const [exams, setExams] = useState<Exam[]>([])
   const [courses, setCourses] = useState<Course[]>([])
   const [open, setOpen] = useState(false)
   const [expandedExams, setExpandedExams] = useState<Set<number>>(new Set())
+  const [error, setError] = useState<string>("")
 
   const [formData, setFormData] = useState({
     title: "",
@@ -48,14 +59,29 @@ export default function ExamsPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const examsData = await getExams()
-      setExams(examsData)
-      const coursesData = await getCourses()
-      setCourses(coursesData)
+      if (!isAuthenticated || !user) {
+        setError("Debes iniciar sesión para ver los exámenes")
+        return
+      }
+
+      try {
+        // Obtener exámenes autorizados según el rol
+        const examsData = await getAuthorizedExams()
+        setExams(examsData)
+
+        // Obtener cursos (para instructores y admins que pueden crear exámenes)
+        if (hasRole('INSTRUCTOR') || hasRole('ADMIN')) {
+          const coursesData = await getCourses()
+          setCourses(coursesData)
+        }
+      } catch (error) {
+        console.error("Error fetching data:", error)
+        setError(error instanceof Error ? error.message : "Error al cargar los datos")
+      }
     }
 
     fetchData()
-  }, [withLoading])
+  }, [isAuthenticated, user, hasRole])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -151,22 +177,32 @@ export default function ExamsPage() {
 
   const handleDelete = async (id: number) => {
     if (window.confirm("¿Estás seguro de que deseas eliminar este examen?")) {
-      const success = await withLoading(() => deleteExam(id))
-      if (success) {
-        setExams(exams.filter((exam) => exam.id !== id))
+      try {
+        const success = await withLoading(() => deleteExam(id))
+        if (success) {
+          setExams(exams.filter((exam) => exam.id !== id))
+          setError("")
+        }
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "Error al eliminar el examen")
       }
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
 
-    const newExam = await withLoading(() => createExam(formData))
+    try {
+      const newExam = await withLoading(() => createExam(formData))
 
-    if (newExam) {
-      setExams([...exams, newExam])
-      setOpen(false)
-      resetForm()
+      if (newExam) {
+        setExams([...exams, newExam])
+        setOpen(false)
+        resetForm()
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Error al crear el examen")
     }
   }
 
@@ -187,35 +223,72 @@ export default function ExamsPage() {
     })
   }
 
+  const canCreateExams = hasRole('INSTRUCTOR') || hasRole('ADMIN')
+  const canDeleteExams = hasRole('INSTRUCTOR') || hasRole('ADMIN')
+
+  // Si no está autenticado, mostrar mensaje
+  if (!isAuthenticated) {
+    return (
+      <div className="container mx-auto py-8">
+        <Alert className="max-w-md mx-auto">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Debes iniciar sesión para acceder a los exámenes.
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold mt-2">Exámenes</h1>
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-          <DialogTrigger asChild>
-            <Button className="bg-primary-600 hover:bg-primary-700" disabled={isLoading}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo Examen
-              {isLoading && <LoadingSpinner/>}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px]">
-            <form onSubmit={handleSubmit}>
+        <div>
+          <h1 className="text-3xl font-bold mt-2">Exámenes</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Bienvenido, {user?.username} 
+            {hasRole('STUDENT') && " - Estos son los exámenes de los cursos en los que estás inscrito"}
+            {hasRole('INSTRUCTOR') && " - Estos son los exámenes de los cursos que dictas"}
+            {hasRole('ADMIN') && " - Todos los exámenes del sistema"}
+          </p>
+        </div>
+        
+        {canCreateExams && (
+          <Dialog open={open} onOpenChange={handleOpenChange}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary-600 hover:bg-primary-700" disabled={isLoading}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo Examen
+                {isLoading && <LoadingSpinner/>}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Crear Nuevo Examen</DialogTitle>
-                <DialogDescription>Completa los detalles del examen a continuación.</DialogDescription>
+                <DialogDescription>
+                  Completa la información del examen y sus preguntas.
+                </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="title">Título</Label>
-                    <Input id="title" name="title" value={formData.title} onChange={handleInputChange} required />
+                    <Label htmlFor="title">Título del Examen</Label>
+                    <Input
+                      id="title"
+                      name="title"
+                      placeholder="Ej: Examen Final de React"
+                      value={formData.title}
+                      onChange={handleInputChange}
+                      required
+                    />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="courseId">Curso</Label>
                     <Select
+                      name="courseId"
                       value={formData.courseId.toString()}
                       onValueChange={(value) => handleSelectChange("courseId", value)}
+                      required
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecciona un curso" />
@@ -230,6 +303,7 @@ export default function ExamsPage() {
                     </Select>
                   </div>
                 </div>
+                
                 <div className="grid gap-2">
                   <div className="flex justify-between items-center">
                     <Label>Preguntas</Label>
@@ -302,23 +376,50 @@ export default function ExamsPage() {
                     </div>
                   ))}
                 </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit" className="bg-primary-600 hover:bg-primary-700" disabled={isLoading}>
-                  Crear
-                  {isLoading && <LoadingSpinner/>}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <DialogFooter>
+                  <Button type="submit" className="bg-primary-600 hover:bg-primary-700" disabled={isLoading}>
+                    Crear
+                    {isLoading && <LoadingSpinner/>}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
-      {exams.length === 0 ? (
+      {/* Error message */}
+      {error && (
+        <Alert className="mb-6" variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* No access message for students with no enrolled courses */}
+      {hasRole('STUDENT') && exams.length === 0 && !error && (
         <div className="text-center py-10">
-          <p className="text-gray-500">No hay exámenes disponibles. Crea uno nuevo para comenzar.</p>
+          <Lock className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <p className="text-gray-500 mb-2">No tienes exámenes disponibles</p>
+          <p className="text-sm text-gray-400">
+            Inscríbete en cursos para acceder a sus exámenes
+          </p>
         </div>
-      ) : (
+      )}
+
+      {/* No exams for instructors */}
+      {hasRole('INSTRUCTOR') && exams.length === 0 && !error && (
+        <div className="text-center py-10">
+          <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <p className="text-gray-500 mb-2">No has creado exámenes aún</p>
+          <p className="text-sm text-gray-400">
+            Crea tu primer examen para uno de tus cursos
+          </p>
+        </div>
+      )}
+
+      {/* Exams grid */}
+      {exams.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {exams.map((exam) => (
             <Card key={exam.id} className="overflow-hidden">
@@ -371,13 +472,20 @@ export default function ExamsPage() {
                     className="text-secondary-600 border-secondary-600 hover:bg-secondary-100"
                   >
                     <FileText className="h-4 w-4 mr-1" />
-                    Ver Detalles
+                    {hasRole('STUDENT') ? 'Tomar Examen' : 'Ver Detalles'}
                   </Button>
                 </Link>
-                <Button variant="destructive" size="sm" onClick={() => handleDelete(exam.id)} disabled={isLoading}>
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Eliminar
-                </Button>
+                {canDeleteExams && (
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    onClick={() => handleDelete(exam.id)} 
+                    disabled={isLoading}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Eliminar
+                  </Button>
+                )}
               </CardFooter>
             </Card>
           ))}
@@ -385,42 +493,5 @@ export default function ExamsPage() {
       )}
     </div>
   )
-}
-
-async function createExam(formData: {
-  title: string;
-  courseId: number;
-  questions: { text: string; examId: number; answers?: { text: string; isCorrect: boolean }[] }[];
-}) {
-  try {
-    // Solo enviamos text y examId de cada pregunta
-    const body = {
-      title: formData.title,
-      courseId: formData.courseId,
-      questions: formData.questions.map(q => ({
-        text: q.text,
-        examId: q.examId
-      }))
-    };
-
-    const response = await fetch("http://localhost:8081/api/exams/create", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-    if (!response.ok) {
-      throw new Error("Error al crear el examen");
-    }
-    return await response.json();
-  } catch (error) {
-    console.error(error);
-    return null;
-  }
-}
-
-function deleteExam(id: number) {
-  throw new Error("Function not implemented.")
 }
 
